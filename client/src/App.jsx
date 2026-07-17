@@ -1,122 +1,138 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import heroImg from './assets/hero.png'
-import './App.css'
+import { useRef, useState } from "react";
+import Quiz from "./components/Quiz";
+import Flashcard from "./components/Flashcard";
+import "./App.css";
+import { generateStudyMaterial } from "./services/api";
 
 function App() {
-  const [count, setCount] = useState(0)
+  const [notes, setNotes] = useState("");
+  const [studyData, setStudyData] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const latestRequest = useRef(0);
+
+const handleGenerate = async () => {
+  if (!notes.trim()) {
+    alert("Please enter your notes.");
+    return;
+  }
+
+  try {
+    setLoading(true);
+    setStudyData(null);
+    setError("");
+    const requestId = ++latestRequest.current;
+    const response = await generateStudyMaterial(notes);
+    if (requestId !== latestRequest.current) {
+  return;
+}
+    if (
+      response.success &&
+      response.data &&
+      response.data.title &&
+      response.data.summary &&
+      Array.isArray(response.data.flashcards) &&
+      Array.isArray(response.data.quiz)
+    ) {
+      setStudyData(response.data);
+    } else {
+      setError("AI returned an unexpected response. Please try again.");
+    }
+  } catch (err) {
+    console.error(err);
+    setError("Failed to generate study material. Please try again.");
+  } finally {
+    setLoading(false);
+  }
+};
 
   return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.jsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
+    <div className="container">
+      <h1 className="title">📚 AI Study Assistant</h1>
 
-      <div className="ticks"></div>
+      <p className="subtitle">
+        Generate summaries, flashcards and quizzes from your notes using AI.
+      </p>
 
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
+      <textarea
+        placeholder="Paste your notes here..."
+        value={notes}
+        onChange={(e) => setNotes(e.target.value)}
+      />
 
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
-  )
+      <button onClick={handleGenerate} disabled={loading}>
+        {loading ? "Generating..." : "Generate Study Material"}
+      </button>
+
+      {loading && (
+        <p style={{ marginTop: "15px", color: "#2563eb" }}>
+          ⏳ Generating study material...
+        </p>
+      )}
+
+      {error && (
+        <div className="error-box">
+          {error}
+        </div>
+      )}
+
+{!loading && !studyData && !error && (
+  <div className="empty-state">
+    <h2>📖 Ready to Study?</h2>
+
+    <p>
+      Paste your notes above and click
+      <strong> Generate Study Material</strong>.
+    </p>
+
+    <ul>
+      <li>✅ AI-generated Summary</li>
+      <li>✅ Interactive Flashcards</li>
+      <li>✅ Quiz with Score</li>
+    </ul>
+  </div>
+)}
+      {studyData && (
+        <div className="result">
+          <div className="section">
+            <h2>📖 {studyData.title}</h2>
+            <p>{studyData.summary}</p>
+          </div>
+
+          <div className="section">
+            <h2>🃏 Flashcards</h2>
+
+            {studyData.flashcards?.map((card, index) => (
+              <Flashcard
+                key={index}
+                question={card.question}
+                answer={card.answer}
+              />
+            ))}
+          </div>
+
+          <div className="section">
+            <h2>📝 Quiz</h2>
+
+           {studyData.quiz?.length > 0 && (
+    <Quiz questions={studyData.quiz} />
+)} 
+          </div>
+        </div>
+      )}
+
+      <footer
+        style={{
+          textAlign: "center",
+          marginTop: "50px",
+          color: "#777",
+          paddingBottom: "20px",
+        }}
+      >
+        Built using React, Express and Groq AI
+      </footer>
+    </div>
+  );
 }
 
-export default App
+export default App;
