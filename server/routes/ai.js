@@ -9,12 +9,12 @@ const groq = new Groq({
 
 router.post("/generate", async (req, res) => {
   try {
-    const { notes } = req.body;
+    const notes = req.body?.notes;
 
     if (!notes || notes.trim() === "") {
       return res.status(400).json({
         success: false,
-        message: "Please enter some notes."
+        message: "Please enter some notes.",
       });
     }
 
@@ -23,7 +23,9 @@ You are an AI Study Assistant.
 
 Read the notes below and return ONLY valid JSON.
 
-Return exactly this format:
+Do not include markdown, explanations, comments or code fences.
+
+If you cannot answer, still return this exact JSON structure.
 
 {
   "title": "",
@@ -50,8 +52,6 @@ Return exactly this format:
 
 Rules:
 - Return ONLY JSON.
-- No markdown.
-- No explanation.
 - Generate exactly 5 flashcards.
 - Generate exactly 5 quiz questions.
 
@@ -68,11 +68,19 @@ ${notes}
         },
       ],
       temperature: 0.3,
+      max_completion_tokens: 1200,
     });
 
-    let text = completion.choices[0].message.content.trim();
+    let text = completion?.choices?.[0]?.message?.content?.trim();
 
-    // Remove markdown if present
+    if (!text) {
+      return res.status(500).json({
+        success: false,
+        message: "AI returned an empty response.",
+      });
+    }
+
+    // Remove markdown if AI returns code fences
     text = text.replace(/^```json/i, "");
     text = text.replace(/^```/, "");
     text = text.replace(/```$/, "").trim();
@@ -86,6 +94,21 @@ ${notes}
         success: false,
         message: "AI returned invalid JSON.",
         raw: text,
+      });
+    }
+
+    // Validate AI response shape
+    if (
+      !data ||
+      typeof data !== "object" ||
+      !data.title ||
+      !data.summary ||
+      !Array.isArray(data.flashcards) ||
+      !Array.isArray(data.quiz)
+    ) {
+      return res.status(500).json({
+        success: false,
+        message: "AI returned an invalid response format.",
       });
     }
 
